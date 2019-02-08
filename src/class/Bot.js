@@ -33,6 +33,8 @@ class Bot {
     if (!Array.isArray(configurationBot.viewers)) throw 'viewers property must be array'
     if (!configurationBot.collector || !(configurationBot.collector instanceof Collector)) throw 'collector property must be Collector class'
     if (!configurationBot.groupIds || !Array.isArray(configurationBot.groupIds)) configurationBot.groupIds = DEFAULT_GROUP_IDS 
+    
+    if (!configurationBot.name) throw 'name property must be string'
 
     return configurationBot
   }
@@ -41,7 +43,7 @@ class Bot {
     return console.log('[' + new Date() + '] ', ...args)
   }
 
-  async init () {
+  async startBots () {
     let self = this;
 
     return new Promise(async (resolve, reject) => {
@@ -60,7 +62,9 @@ class Bot {
           
           await Utils.asyncLoop(bot.viewers.length, async (viewerLoop) => {
             let viewer = bot.viewers[viewerLoop.iteration]
-            
+              
+            // console.log(bot.botName, 'botName')
+            viewer.botName = bot.name
             viewer.db = self.db
             viewer._log = self._log
 
@@ -75,7 +79,7 @@ class Bot {
           })
 
           bot.collector.addGroupIds(bot.groupIds)
-          
+          bot.collector.botName = bot.name
           bot.collector.db = self.db
           bot.collector._log = self._log
 
@@ -89,6 +93,9 @@ class Bot {
         })
 
       })  
+
+
+      resolve(true)
 
     })
 
