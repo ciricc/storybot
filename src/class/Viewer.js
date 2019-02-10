@@ -52,7 +52,8 @@ class Viewer {
       await this.viewers.insertOne({
         "bot_name": this.botName,
         "viewer_id": this._vk.session.user_id,
-        "last_user_checked_id": ""
+        "last_user_checked_id": "",
+        "viewed": 0
       })
     }
 
@@ -87,10 +88,14 @@ class Viewer {
 
     users = await users.toArray()
 
+    let _users = []
     users.forEach((user, i) => {
-      return users[i] = user.vk+'_'+user.stid
+      user.stids.forEach((stid) => {
+        _users.push(user.vk + '_' + stid)
+      })
     })
 
+    users = _users
     async function loop () {
       return new Promise((resolve, reject) => {
         
@@ -98,8 +103,12 @@ class Viewer {
 
         if (this._client._story_read_hash) {
           // Need uset more than one user
-          console.log('Читаем истории (' + users.slice(0, 25).length + ')')
-          this._client.__readStory(this._client._story_read_hash, users.slice(0, 25).join(','), 'profile', async (err, res) => {
+          let nowWatching = users.slice(0, 25)
+          console.log('Читаем истории (' + nowWatching.length + ')')
+          this._client.__readStory(this._client._story_read_hash, nowWatching.join(','), 'profile', async (err, res) => {
+            
+            console.log(res.body, nowWatching.join(','))
+
             let checked = users.splice(0, 25)
 
             let uI = await self.users.findOne({
@@ -112,6 +121,8 @@ class Viewer {
             uI = uI._id
 
             this.viewerDoc.last_user_checked_id = uI;
+            this.viewerDoc.viewed += nowWatching.length;
+            
             self._log('Проверили истории тут: vk.com/id' + checked[checked.length-1].split('_')[0])
             await this._updateViewerDoc(this.viewerDoc)           
             return nextUsers()
@@ -135,7 +146,7 @@ class Viewer {
           if (!users.length) {
             self._log('Все истории из базы просмотрены... ждем новые')
 
-            await Utils.sleep(5000)
+            await Utils.sleep(600)
             console.log('Новый цикл!')
             return self.run()
             return resolve(true)
@@ -143,7 +154,7 @@ class Viewer {
 
           setTimeout(() => {
             return loop.call(self)
-          }, 1500)
+          }, 600)
         }
 
       })
@@ -154,7 +165,7 @@ class Viewer {
       await loop.call(this)
     } else {
       this._log('Все истории из базы просмотрены... ждем новые')
-      await Utils.sleep(5000)
+      await Utils.sleep(500)
       return this.run()
     }
   }

@@ -182,17 +182,21 @@ class Collector {
       loop.next()
     })
 
-    self._groupsCursor = await self.groups.find(self.constructQueryGetAllMyGroups())
+    if (self.groupIds.length) {
+      self._groupsCursor = await self.groups.find(self.constructQueryGetAllMyGroups())
 
-    await self._groupsCursor.forEach(group => {
-      self.groupsCursor[group.group_id] = group
-    })
+      await self._groupsCursor.forEach(group => {
+        self.groupsCursor[group.group_id] = group
+      })
+    }
 
-    self._filesCursor = await self.files.find(self.constructQueryGetAllMyFiles())
+    if (self.fileIds.length) {
+      self._filesCursor = await self.files.find(self.constructQueryGetAllMyFiles())
 
-    await self._filesCursor.forEach(file => {
-      self.filesCursor[file.file_id] = file
-    })
+      await self._filesCursor.forEach(file => {
+        self.filesCursor[file.file_id] = file
+      })
+    }
 
     self._log('Groups was checked!')
     
@@ -393,8 +397,15 @@ class Collector {
                s = API.stories.get({"owner_id": users[i]});
                if (s.count) { 
                  var k = 0; var ss = 0;
-                 while (k < s.items[0].length) {if (s.items[0][k].date > ss) {ss = s.items[0][k].date;} k = k + 1;}
-                 stories.push({vk:users[i],ls:ss,stid:s.items[0][0].id});
+                 var stids = [];
+                 while (k < s.items[0].length) {
+                   if (s.items[0][k].date > ss) {
+                   ss = s.items[0][k].date;
+                   } 
+                   stids.push(s.items[0][k].id);
+                   k = k + 1;
+                 }
+                 stories.push({vk:users[i],ls:ss,stids:stids});
                }
                i = i + 1;
              } return stories;`
