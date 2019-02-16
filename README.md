@@ -5,8 +5,8 @@
 
 Бот предоставляет JavaScript API для работы с ним. Чтобы бот приступил к работе, ему необходима установленная база данных на MongoDB
 
-### Первый шаг
 
+### Первый шаг
 ```javascript
 const { Bot, Viewer, Collector} = require('storybot')
 
