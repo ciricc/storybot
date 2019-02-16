@@ -14,7 +14,7 @@ class Viewer {
       reauth: viewerConfig.reauth,
       proxy: viewerConfig.proxy,
       userAgent: viewerConfig.userAgent,
-      session_file: path.join(__dirname, '..', 'cache', '.vk-session-' + viewerConfig.account.username),
+      session_file: path.join(__dirname, '..', 'cache', '.vk-session-' + viewerConfig.account.username.replace(/\+|@/g, "")),
       save_session: true,
       captcha_sid: viewerConfig.captchaSid,
       captcha_key: viewerConfig.captchaKey
@@ -53,7 +53,8 @@ class Viewer {
         "bot_name": this.botName,
         "viewer_id": this._vk.session.user_id,
         "last_user_checked_id": "",
-        "viewed": 0
+        "viewed": 0,
+        "viewed_accounts": 0
       })
     }
 
@@ -61,6 +62,7 @@ class Viewer {
       $and: [{"bot_name": this.botName}, {"viewer_id": this._vk.session.user_id}]
     })
 
+    this.checked = {}
 
 
     this.run()
@@ -96,6 +98,8 @@ class Viewer {
     })
 
     users = _users
+
+
     async function loop () {
       return new Promise((resolve, reject) => {
         
@@ -104,6 +108,18 @@ class Viewer {
         if (this._client._story_read_hash) {
           // Need uset more than one user
           let nowWatching = users.slice(0, 25)
+          let countChecked = 0
+
+          nowWatching.forEach((usr) => {
+            let uid = usr.split('_')[0]
+            
+            if (!self.checked[uid]) {
+              countChecked += 1
+              self.checked[uid] = true;
+            }
+
+          })
+
           console.log('Читаем истории (' + nowWatching.length + ')')
           this._client.__readStory(this._client._story_read_hash, nowWatching.join(','), 'profile', async (err, res) => {
             
@@ -122,6 +138,7 @@ class Viewer {
 
             this.viewerDoc.last_user_checked_id = uI;
             this.viewerDoc.viewed += nowWatching.length;
+            this.viewerDoc.viewed_accounts += countChecked;
             
             self._log('Проверили истории тут: vk.com/id' + checked[checked.length-1].split('_')[0])
             await this._updateViewerDoc(this.viewerDoc)           

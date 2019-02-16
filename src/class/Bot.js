@@ -1,11 +1,11 @@
-const MongoClient = require("mongodb").MongoClient;
+const { MongoClient, Int32 }  = require("mongodb")
 const Collector = require('./Collector')
 const Utils = require('./Utils')
 
 
 
 const DEFAULT_GROUP_IDS = [57846937]
-const MONGO_DB_NAME = 'storybot'
+const MONGO_DB_NAME_DEFAULT = 'storybot'
 
 
 class Bot {
@@ -14,6 +14,7 @@ class Bot {
     this.bots = [];
     
     if (!dbSetup.urlDb) dbSetup.urlDb = 'mongodb://localhost:27017/'
+    this.dbName = dbSetup.dbName || '';
 
     this.mongoClient = new MongoClient(dbSetup.urlDb, { 
       useNewUrlParser: true
@@ -54,7 +55,34 @@ class Bot {
 
         if (err) return reject(err)
       
-        self.db = client.db(MONGO_DB_NAME)
+        self.db = client.db(self.dbName || MONGO_DB_NAME_DEFAULT)
+
+        self.db.collection("files").createIndex({
+          "_id": Int32(1)
+        },[
+          
+        ]);
+
+        /** groups indexes **/
+        self. db.collection("groups").createIndex({
+          "_id": Int32(1)
+        },[
+          
+        ]);
+
+        /** users indexes **/
+        self.db.collection("users").createIndex({
+          "_id": Int32(1)
+        },[
+          
+        ]);
+
+        /** viewers indexes **/
+        self.db.collection("viewers").createIndex({
+          "_id": Int32(1)
+        },[
+          
+        ]);
 
         await Utils.asyncLoop(self.bots.length, async (loop) => {
           

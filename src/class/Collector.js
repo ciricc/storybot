@@ -450,21 +450,25 @@ class Collector {
   }
 
   async _addUsers (users = [], gid = 0, fid = '') {
-    let _users = []
+    // let _users = []
     let identi = 'group_' + gid
 
     if (fid) {
       identi = 'file_' + fid
     }
 
-    users.forEach(user => {
+     return users.forEach(async user => {
       user[identi] = true
       user["bot_name"] = this.botName
       user.vk = Number(user.vk)
-      _users.push(user)
+
+      await this.users.updateOne(user, {
+        $set: user
+      }, {
+        upsert: true
+      })
     }, this)
 
-    return this.users.insertMany(_users)
   }
 
   async _updateGroup (group = {}) {
