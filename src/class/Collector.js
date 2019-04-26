@@ -43,7 +43,9 @@ class Collector {
 
 
     this._log = Function()
-     
+    this._command = Function()
+
+
     tokens.forEach(token => {
       if (token) {
         this.createToken(token)
@@ -146,7 +148,7 @@ class Collector {
       })
 
       if (!count) {
-        self._log('Adding new group to database ...')
+        self._log('Добавляем группу в базу данных...')
 
         await self.groups.insertOne({
           "group_id": groupId,
@@ -169,7 +171,7 @@ class Collector {
       })
 
       if (!count) {
-        self._log('Adding new file to database ...')
+        self._log('Добавляем новый файл в базу данных...')
         await self.files.insertOne({
           "file_id": file.hashId,
           "offset": 0,
@@ -198,7 +200,7 @@ class Collector {
       })
     }
 
-    self._log('Groups was checked!')
+    self._log('Группы из настроек были проверены и добавлены в базу')
     
     return self._getNewStories()
   }
@@ -275,12 +277,12 @@ class Collector {
 
           if (!self.groupIds[self.activeGroupIndex]) {
             
-            self._log('Bot stopped! All groups was checked!')
+            self._log('Работа остановлена! Все группы были проверены на наличие историй')
 
             return 
           } else {
             self.activeGroup = self.groupIds[self.activeGroupIndex]
-            self._log('Group changed to new (' + self.activeGroup + ')')
+            self._log('Переключаемся на новую группу', self.activeGroup)
 
             return await loopGroups.call(self)
           }
@@ -334,14 +336,14 @@ class Collector {
 
           if (!self.fileIds[self.activeFileIndex]) {
             
-            self._log('All files was checked!')
+            self._log('Все файлы из настроек были добавлены и проверены')
 
             return 
           } else {
             
             self.activeFile = self.fileIds[self.activeFileIndex].hashId
 
-            self._log('File changed to new (' + self.activeFile + ')')
+            self._log('Переключились на новый файл', self.activeFile)
 
             return await loopFiles.call(self)
           }
@@ -368,7 +370,8 @@ class Collector {
       await loopGroups.call(this)
     }
 
-    self._log('All process in collecor stopped!')
+    self._log('Все процессы в коллекторе отключены')
+    self._command('stop_process')
 
     return true;
   }

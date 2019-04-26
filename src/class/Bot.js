@@ -1,4 +1,5 @@
 const { MongoClient, Int32 }  = require("mongodb")
+const colors = require('colors')
 const Collector = require('./Collector')
 const Utils = require('./Utils')
 
@@ -14,7 +15,20 @@ class Bot {
     this.bots = [];
     
     if (!dbSetup.urlDb) dbSetup.urlDb = 'mongodb://localhost:27017/'
+
+    if (dbSetup.log !== undefined && typeof dbSetup.log !== "function") {
+      throw new Error('Log function must be only of function type')
+    }
+
+    if (dbSetup.command !== undefined && typeof dbSetup.command !== "function") {
+      throw new Error('Command handler function must be only of function type')
+    } 
+
     this.dbName = dbSetup.dbName || '';
+    this.options = dbSetup;
+    this.state = {
+      stopped: false
+    }
 
     this.mongoClient = new MongoClient(dbSetup.urlDb, { 
       useNewUrlParser: true
@@ -40,8 +54,25 @@ class Bot {
     return configurationBot
   }
 
+  _command (...args) {
+    if (this.options && this.options.command) this.options.command(...args)
+
+    if (args[0] === "collector") {
+      switch (args[1]) {
+        case 'stop_process':
+          this.state.stopped = true;
+          break;
+      }
+    }
+
+  }
+
   _log (...args) {
-    return console.log('[' + new Date() + '] ', ...args)
+    if (this.options && this.options.log) return this.options.log(...args)
+
+    return console.log(String('[timestamp(' + Math.floor(new Date().getTime() / 1000) + ')] ').yellow, ...([...args].map(a => {
+      return a.toString().white
+    })))
   }
 
   async startBots () {
@@ -94,7 +125,16 @@ class Bot {
             // console.log(bot.botName, 'botName')
             viewer.botName = bot.name
             viewer.db = self.db
-            viewer._log = self._log
+            
+            viewer.controllerState = self.state;
+
+            viewer._log = (...args) => {
+              self._log('(Viewer)\n'.cyan, ...args)
+            }
+
+            viewer._command = (...args) => {
+              self._command('viewer', viewer._vk.session.user_id, ...args)
+            }
 
             await bot.viewers[viewerLoop.iteration].init()
 
@@ -109,7 +149,13 @@ class Bot {
           bot.collector.addGroupIds(bot.groupIds)
           bot.collector.botName = bot.name
           bot.collector.db = self.db
-          bot.collector._log = self._log
+          bot.collector._log = (...args) => {
+            self._log('(Collector)\n'.cyan, ...args)
+          }
+
+          bot.collector._command = (...args) => {
+            self._command('collector', 0, ...args)
+          }
 
           loop.next()
 

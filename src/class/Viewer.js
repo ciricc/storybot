@@ -1,6 +1,7 @@
 const easyvk = require('easyvk')
 const path = require('path')
 const Utils = require('./Utils')
+const colors = require('colors')
 
 class Viewer {
 
@@ -19,6 +20,8 @@ class Viewer {
       captcha_sid: viewerConfig.captchaSid,
       captcha_key: viewerConfig.captchaKey
     }
+
+    this.controllerState = {}
 
   }
 
@@ -120,10 +123,14 @@ class Viewer {
 
           })
 
-          console.log('Читаем истории (' + nowWatching.length + ')')
+          this._log('Читаем истории (' + nowWatching.length + ')')
+          self._command(
+            'viewer_begin_reading', 
+            nowWatching.join(',')
+          )
           this._client.__readStory(this._client._story_read_hash, nowWatching.join(','), 'profile', async (err, res) => {
             
-            console.log(res.body, nowWatching.join(','))
+            this._log(res.body, nowWatching.join(','))
 
             let checked = users.splice(0, 25)
 
@@ -141,17 +148,32 @@ class Viewer {
             this.viewerDoc.viewed_accounts += countChecked;
             
             self._log('Проверили истории тут: vk.com/id' + checked[checked.length-1].split('_')[0])
+            
+            self._command(
+              'viewer_checked_stories', 
+              nowWatching.join(','),
+              res.body
+            )
+
             await this._updateViewerDoc(this.viewerDoc)           
             return nextUsers()
           })
           
 
         } else {
-          console.log('Обновляем хеш...')
-          
+          this._log('Обновляем хеш...')
+          this._command(
+            'viewer_update_hash',
+            users[0].split('_')[0]
+          )
           return this._client.readStories(users[0].split('_')[0]).then((count) => {
-            console.log(count.count, users[0].split('_')[0])
-            console.log('Прочитали!')
+            self._log(count.count, users[0].split('_')[0])
+            self._log('Прочитали!')
+            this._command(
+              'viewer_checked_stories',
+              users[0].split('_')[0],
+              ''
+            )
             users.splice(0, 1)
             return nextUsers()
           })
@@ -161,10 +183,10 @@ class Viewer {
         async function nextUsers() {
           
           if (!users.length) {
-            self._log('Все истории из базы просмотрены... ждем новые')
+            self._log('Все истории из базы просмотрены... ждем новые'.green, self.controllerState)
 
             await Utils.sleep(600)
-            console.log('Новый цикл!')
+            self._log('Новый цикл!')
             return self.run()
             return resolve(true)
           }
@@ -179,11 +201,27 @@ class Viewer {
 
     if (users.length) {
       this._log('Есть новые истории!')
+      this._command(
+        'viewer_continues'
+      )
       await loop.call(this)
     } else {
+
       this._log('Все истории из базы просмотрены... ждем новые')
+      
+      this._command(
+        'viewer_waiting'
+      )
+
       await Utils.sleep(500)
-      return this.run()
+      if (!this.controllerState.stopped) return this.run()
+      else { 
+        this._command(
+          'viewer_stopped', 
+          'all_checked'
+        )
+        return this._log('Просмотрщик остановлен. Все истории просмотрены и собраны полностью')
+      }
     }
   }
 
