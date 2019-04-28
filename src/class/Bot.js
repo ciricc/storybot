@@ -84,8 +84,8 @@ class Bot {
         
         self._log('Connected to db')
 
-        if (err) return reject(err)
-      
+        if (err) throw err;
+         
         self.db = client.db(self.dbName || MONGO_DB_NAME_DEFAULT)
 
         self.db.collection("files").createIndex({
