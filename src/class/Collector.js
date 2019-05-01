@@ -1,5 +1,4 @@
 const easyvk = require('easyvk')
-const md5 = require('md5')
 const fs = require('fs')
 
 const Utils = require('./Utils')
@@ -10,21 +9,17 @@ class Collector {
   constructor (settings = {}) {
 
     let tokens = settings.tokens || []
-    let idsFiles = settings.idsFiles || []
+    let idsFiles = settings.idsFiles || settings.fileIds || []
 
     this.fileIds = []
 
     idsFiles.forEach((filePath) => {
 
       this.fileIds.push({
-        path: filePath,
-        hashId: md5(filePath)
+        path: filePath
       })
 
     }, this)
-
-    this.activeFile = ''
-    this.activeFileIndex = 0
 
     this.tokens = {  
       active: 0
@@ -37,7 +32,6 @@ class Collector {
     this.activeGroupIndex = 0
 
     this.groupsCursor = {}
-    this.filesCursor = {}
 
     this.cacheGroups = []
 
@@ -163,40 +157,12 @@ class Collector {
 
     })
 
-    await Utils.asyncLoop(self.fileIds.length, async (loop) => {
-      let file = self.fileIds[loop.iteration]
-
-      let count = await self.files.countDocuments({
-        $and: [{"file_id": file.hashId}, {"bot_name": self.botName}]
-      })
-
-      if (!count) {
-        self._log('Добавляем новый файл в базу данных...')
-        await self.files.insertOne({
-          "file_id": file.hashId,
-          "offset": 0,
-          "count_of_stories": 0,
-          "last_check_time": 0,
-          "bot_name": self.botName
-        });
-      }
-
-      loop.next()
-    })
 
     if (self.groupIds.length) {
       self._groupsCursor = await self.groups.find(self.constructQueryGetAllMyGroups())
 
       await self._groupsCursor.forEach(group => {
         self.groupsCursor[group.group_id] = group
-      })
-    }
-
-    if (self.fileIds.length) {
-      self._filesCursor = await self.files.find(self.constructQueryGetAllMyFiles())
-
-      await self._filesCursor.forEach(file => {
-        self.filesCursor[file.file_id] = file
       })
     }
 
@@ -223,24 +189,6 @@ class Collector {
     return obj;
   }
 
-  constructQueryGetAllMyFiles () {
-    let obj = {
-      $or: []
-    }
-
-    this.fileIds.forEach((file) => {
-      
-      obj.$or.push({
-        $and: [{
-          "file_id": file.hashId
-        }, {
-          "bot_name": this.botName
-        }]
-      })
-    })
-
-    return obj;
-  }
 
   async _getNewStories () {
     let offset = 0;
@@ -270,10 +218,13 @@ class Collector {
 
         self.cacheGroups = vkr;
 
-
-        if (!vkr[0].items.length) {
+        if (vkr[0] === false || !vkr[0].items.length) {
           // Участники закончились, нужно перейти на следующую группу
           self.activeGroupIndex += 1
+          
+          if (vkr[0] === false) {
+            self._log(`[Error] Участники группы @club${this.activeGroup} не были получены. Убедитесь, что группа доступна аккаунту коллектора и не заблокирована`)
+          }
 
           if (!self.groupIds[self.activeGroupIndex]) {
             
@@ -300,71 +251,30 @@ class Collector {
         return await loopGroups.call(self)
       })
     }
+  
 
-    async function loopFiles () {
+    async function getIdsFromFiles () {
+      let users = [];
       
-      if (!this.activeFile) this.activeFile = this.fileIds[this.activeFileIndex].hashId
+      this.fileIds.forEach(file => {
+        let _users = fs.readFileSync(file.path).toString();
 
-      let activeFile = this.filesCursor[this.activeFile]
-      offset = activeFile.offset
-
-      let execs = [];
-
-      self._log('offset=' + offset, 'activeGroup=' + this.activeGroup)
-       
-      let _users = fs.readFileSync(this.fileIds[this.activeFileIndex].path).toString()
-      let users = []
-      _users = _users.replace(/\r/g, "").split('\n')
-      _users.forEach((user) => {
-        user = user.replace(/([^0-9]+)/g, '')
-
-        if (user) {
-          users.push(user)
-        }
-      })
-
-      users.splice(0, offset)
-
-      self.cacheGroups = users;
-
-
-      async function makeFile () {
-        if (!users.length) {
-        // Участники закончились, нужно перейти на следующий файл
-
-          self.activeFileIndex += 1
-
-          if (!self.fileIds[self.activeFileIndex]) {
-            
-            self._log('Все файлы из настроек были добавлены и проверены')
-
-            return 
-          } else {
-            
-            self.activeFile = self.fileIds[self.activeFileIndex].hashId
-
-            self._log('Переключились на новый файл', self.activeFile)
-
-            return await loopFiles.call(self)
+        _users = _users.replace(/\r/g, "").split(/\n|\s/)
+        _users.forEach((user) => {
+          user = user.replace(/([^0-9]+)/g, '')
+          if (user) {
+            users.push(Number(user))
           }
-        }
-
-        return self._checkStoriesFromCache(true)
-      }
-
-      return makeFile().then(async () => {
-
-        if (!self.fileIds[self.activeFileIndex]) {
-          return false
-        }
-
-        return await loopFiles.call(self)
+        })
       })
-    }  
+
+      this.groupIds = users.concat(this.groupIds)
+    }
 
     if (this.fileIds.length) {
-      await loopFiles.call(this)
+      await getIdsFromFiles.call(this)
     }
+
 
     if (this.groupIds.length) {
       await loopGroups.call(this)
@@ -386,10 +296,12 @@ class Collector {
     } else {
       members = this.cacheGroups 
     }
+  
 
     this.cacheGroups = members
     
     async function loop () {
+      let countOf = members.length;
       let {vkr} = await this._vk.post('execute', {
         code: `var stories=[];
             var users=${JSON.stringify(members.splice(0, 25))};
@@ -415,30 +327,20 @@ class Collector {
       });
 
      
-     if (fromFile) {
-       let file = this.filesCursor[this.activeFile]
-       file.offset += 25
-       file.count_of_stories += vkr.length
-       file.last_check_time = new Date().getTime()
+     let group = this.groupsCursor[this.activeGroup]
 
+     group.offset += (countOf < 25) ? countOf : 25;
+     group.count_of_stories += vkr.length
+     group.last_check_time = new Date().getTime()
 
-       await this._updateFile(file)
+     await this._updateGroup(group);
+     
+     if (vkr.length) {
+      this._log(`Достали ${vkr.length} пользователей из группы @club${group.group_id}, (offset=${group.offset})`)
+     }
 
-       if (vkr.length) {
-         await this._addUsers(vkr, null, file.file_id)
-       }
-
-     } else {
-       let group = this.groupsCursor[this.activeGroup]
-
-       group.offset += 25;
-       group.count_of_stories += vkr.length
-       group.last_check_time = new Date().getTime()
-
-       await this._updateGroup(group);
-       if (vkr.length) {
-         await this._addUsers(vkr, group.group_id)
-       }
+     if (vkr.length) {
+       await this._addUsers(vkr, group.group_id)
      }
 
 
@@ -452,13 +354,10 @@ class Collector {
     return await loop.call(this)
   }
 
-  async _addUsers (users = [], gid = 0, fid = '') {
+  async _addUsers (users = [], gid = 0) {
     // let _users = []
     let identi = 'group_' + gid
 
-    if (fid) {
-      identi = 'file_' + fid
-    }
 
      return users.forEach(async user => {
       user[identi] = true
@@ -480,16 +379,6 @@ class Collector {
       _id: group._id
     }, {
       $set: group
-    })
-
-  }
-
-  async _updateFile (file = {}) {
-    
-    return this.files.updateOne({
-      _id: file._id
-    }, {
-      $set: file
     })
 
   }

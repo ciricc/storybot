@@ -1,7 +1,7 @@
 {
   "name": "storybot",
-  "version": "0.0.21",
-  "description": "A bot that watches stories on behalf of your VKontakte account",
+  "version": "0.0.22",
+  "description": "A bot that watches users stories on behalf of your VKontakte account",
   "main": "index.js",
   "scripts": {
     "test": "eslint"
@@ -35,7 +35,6 @@
   "dependencies": {
     "colors": "^1.3.3",
     "easyvk": "^2.4.12",
-    "md5": "^2.2.1",
     "mongodb": "^3.1.13"
   }
 }

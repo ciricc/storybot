@@ -166,7 +166,7 @@ class Viewer {
 
         async function nextUsers () {
           if (!users.length) {
-            self._log('Все истории из базы просмотрены... ждем новые'.green, self.controllerState)
+            self._log('Все истории из базы просмотрены... ждем новые'.green, JSON.stringify(self.controllerState))
 
             await Utils.sleep(600)
             self._log('Новый цикл!')

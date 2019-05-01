@@ -71,7 +71,9 @@ class Bot {
     if (this.options && this.options.log) return this.options.log(...args)
 
     return console.log(String('[timestamp(' + Math.floor(new Date().getTime() / 1000) + ')] ').yellow, ...([...args].map(a => {
-      return a.toString().white
+      let ca = a.toString()
+      return (ca.match(/^\[Error\]/)) ? ca.red : 
+      (ca.match(/^\[Info\]/)) ? ca.cyan : ca.white; 
     })))
   }
 
@@ -88,11 +90,6 @@ class Bot {
          
         self.db = client.db(self.dbName || MONGO_DB_NAME_DEFAULT)
 
-        self.db.collection("files").createIndex({
-          "_id": Int32(1)
-        },[
-          
-        ]);
 
         /** groups indexes **/
         self. db.collection("groups").createIndex({
