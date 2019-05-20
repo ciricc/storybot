@@ -134,13 +134,34 @@ class Collector {
     
     let self = this
 
+    async function getIdsFromFiles () {
+      let users = [];
+      
+      this.fileIds.forEach(file => {
+        let _users = fs.readFileSync(file.path).toString();
+
+        _users = _users.replace(/\r/g, "").split(/\n|\s/)
+        _users.forEach((user) => {
+          user = user.replace(/([^0-9]+)/g, '')
+          if (user) {
+            users.push(Number(user))
+          }
+        })
+      })
+
+      this.groupIds = users.concat(this.groupIds)
+    }
+
+    if (this.fileIds.length) {
+      await getIdsFromFiles.call(this)
+    }
+
     await Utils.asyncLoop(self.groupIds.length, async (loop) => {
       let groupId = self.groupIds[loop.iteration]
-
       let count = await self.groups.countDocuments({
         $and: [{"group_id": groupId}, {"bot_name": self.botName}]
       })
-
+      
       if (!count) {
         self._log('Добавляем группу в базу данных...')
 
@@ -197,7 +218,8 @@ class Collector {
 
     async function loopGroups () {
       
-      if (!this.activeGroup) this.activeGroup = this.groupIds[this.activeGroupIndex]
+      if (!this.activeGroup) 
+        this.activeGroup = this.groupIds[this.activeGroupIndex]
 
       offset = this.groupsCursor[this.activeGroup].offset
 
@@ -252,28 +274,6 @@ class Collector {
       })
     }
   
-
-    async function getIdsFromFiles () {
-      let users = [];
-      
-      this.fileIds.forEach(file => {
-        let _users = fs.readFileSync(file.path).toString();
-
-        _users = _users.replace(/\r/g, "").split(/\n|\s/)
-        _users.forEach((user) => {
-          user = user.replace(/([^0-9]+)/g, '')
-          if (user) {
-            users.push(Number(user))
-          }
-        })
-      })
-
-      this.groupIds = users.concat(this.groupIds)
-    }
-
-    if (this.fileIds.length) {
-      await getIdsFromFiles.call(this)
-    }
 
 
     if (this.groupIds.length) {
