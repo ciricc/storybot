@@ -67,8 +67,13 @@ Collector - это один или несколько аккаунтов, кот
 const { Collector } = require('storybot')
 
 let myCollector = new Collector({
-  fileIds: [__dirname + '/groups.data']
-  tokens: [''] // Если токенов нет, то авторизация произойдет по Viewer'у
+  fileIds: [__dirname + '/groups.data'],
+  tokens: [''], // НЕ МОЖЕТ БЫТЬ ПУСТЫМ
+  target: {
+    sex: 1,
+    users: [1,2,3,4],
+    files: [__dirname + '/users.ids']
+  }
 })
 
 ```
@@ -86,7 +91,12 @@ let myCollector = new Collector({
 ```javascript
 tokens: ['token1', 'token2', 'token3', ...['tokenN']]
 ```
-
+* <b>easyvkDebug</b> - параметр для продвинутых пользователей API - объект Debugger Easy VK для работы с дебагом запросов
+* <b>target</b> - настройки таргета для более точного поиска аудитории
+* <b>target.sex</b> - пол аудитории, в которой нужно искать истории <b>1</b> - женский пол, <b>2</b> - мужской пол
+* <b>target.users[]</b> - массив идентифекаторов пользователей, у которых нужно искать истории
+* <b>target.files[]</b> - массив путей к файлам, где хранятся идентифекатора пользователей, у которых нужно искать истории (соединяются вместе с <b>target.users[]</b>)
+* <b>collectFromGroups</b> - нужно ли в данный момент искать участников в группах
 
 ### Viewer
 
@@ -105,7 +115,9 @@ let Liza = new Viewer({
   proxy: 'socks5://150.129.54.111:6667',
   userAgent: 'MOT-V360v/08.B7.58R MIB/2.2.1 Profile/MIDP-2.0 Configuration/CLDC-1.1',
   captchaKey: 'key',
-  captchaSid: 34040402
+  captchaSid: 34040402,
+  limitStoriesForUser: 1,
+  startFromEnd: false
 })
 ```
 
@@ -117,7 +129,11 @@ let Liza = new Viewer({
 *  <b>userAgent</b> - User-Agent для запросов (header)
 *  <b>captchaKey</b> - текст с полседней полученной капчи
 *  <b>captchaSid</b> - ID последней полученной капчи
-
+*  <b>code</b> - Код для двухфакторной аутентификации
+*  <b>access_token</b> - забудьте об авторизации через HTTP клиент. С новым способом можно просто вставить access_token с максимальными правами, полученным <i>на стороне клиента приложения ВКонтакте</i>
+*  <b>easyvkDebug</b> - параметр для продвинутых пользователей API - объект Debugger Easy VK для работы с дебагом запросов
+*  <b>limitStoriesForUser</b> - максимальное кол-во историй, которое будет просматриваться у одного пользователя (их может быть и 50 сразу, но просомтрит он только <code>limitStoriesForUser<code> историй)
+*  <b>startFromEnd</b> - нужно ли смотреть истории с конца. Конец - это самая последняя выложенная история пользователем
 
 ### Bot (бот)
 
@@ -137,8 +153,9 @@ let botController = new Bot({
   log: (...args) => {
     console.log(...args)
   },
-  dbName: 'storybot',
-  dbUrl: 'mongodb://localhost:27017/'
+  database: {
+    filename: __dirname + '/storybot.sqlite'
+  }
 })
 
 // Список групп
@@ -173,11 +190,18 @@ command: (from, id, command, ...data) => {
 }
 ```
 * <b>log</b> - функция, которая будет ловить все <code>console.log()</code> бота. Может помочь, чтобы вести логи программы отдельно
-* <b>dbName</b> - имя базы данных в mongodb
-* <b>dbUrl</b> - адрес базы данных (порт, протокол и IP)
+* <b>database</b> - объект настроек для файла базы данных <code>sqlite</code>, вы можете использовать настройки из модуля <a href="https://www.npmjs.com/package/sqlite3">sqlite3</a>, опираясь на рекомендации модуля <a href="https://www.npmjs.com/package/knex">knex</a>
+
+```javascript
+new Bot({
+  database: {
+    filename: __dirname + '/storybot.sqlite'
+  }
+})
+```
 
 ## Важности важные
 
-Для того, чтобы бот работал, вам понадобится создать базу данных в mongodb (для этого надо установить mongodb и в нем создать новую базу)
+Для того, чтобы бот работал, вам больше не нужно скачивать Mongo DB :) !
 
 Желаю вам успехов.

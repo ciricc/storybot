@@ -34,7 +34,8 @@
   },
   "dependencies": {
     "colors": "^1.3.3",
-    "easyvk": "^2.4.12",
-    "mongodb": "^3.1.13"
+    "easyvk": "^2.5.1",
+    "knex": "^0.18.3",
+    "sqlite3": "^4.0.9"
   }
 }
