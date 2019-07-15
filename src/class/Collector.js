@@ -454,8 +454,10 @@ class Collector {
                } return stories;`
           });
           
+          let group;
+
           if (!this.collectingTarget) {
-            let group = this.groupsCursor[this.activeGroup]
+            group = this.groupsCursor[this.activeGroup]
 
             group.offset += (countOf < 25) ? countOf : 25;
             group.count_of_stories += vkr.length
@@ -472,12 +474,14 @@ class Collector {
           }
 
           if (vkr.length) {
-            this._log(`Достали ${vkr.length} пользователей из группы @club${group.group_id}, (offset=${group.offset})`)
+            if (!this.collectingTarget) {
+              this._log(`Достали ${vkr.length} пользователей из группы @club${group.group_id}, (offset=${group.offset})`)
+            }
           }
 
           /** А теперь добавляем в базу всех, кого удалось найти*/
           if (vkr.length) {
-            await this._addUsers(vkr, group.group_id)
+            await this._addUsers(vkr)
           }
 
           /**
@@ -528,8 +532,7 @@ class Collector {
 
   }
 
-  async _addUsers (users = [], gid = 0) {
-    let identi = 'group_' + gid
+  async _addUsers (users = []) {
      return users.forEach(async user => {
       if (user.vk) {
         let _user = {};
