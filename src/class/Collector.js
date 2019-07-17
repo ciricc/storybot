@@ -50,6 +50,14 @@ class Collector {
       this.settings.collectFromGroups = true;
     }
 
+    if (!this.settings.target) {
+      this.settings.target = {}
+    }
+
+    if (!this.settings.target.users) {
+      this.settings.target.users = [];
+    }
+
     this._log = Function()
     this._command = Function()
     this.countRequests = 150;
