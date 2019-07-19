@@ -38,12 +38,8 @@ class Collector {
     this.cacheGroups = []
     this.settings = settings;
 
-    if (!this.settings.tokenDelay) {
-      this.settings.tokenDelay = 1000
-    }
-
-    if (!this.settings.maximumCallsPerSecond) {
-      this.settings.maximumCallsPerSecond = 3
+    if (!this.settings.tokens || !this.settings.tokens.length) {
+      throw new Error('You need setup tokens property in collector')
     }
 
     if (this.settings.collectFromGroups !== false) {
