@@ -1,4 +1,8 @@
-module.exports.Collector = require('./class/Collector')
-module.exports.Bot = require('./class/Bot')
-module.exports.Viewer = require('./class/Viewer')
-module.exports.Utils = require('./class/Utils')
+module.exports = 
+{
+	Collector: require('./class/Collector'),
+	Bot: require('./class/Bot'),
+	Viewer: require('./class/Viewer'),
+	Utils: require('./class/Utils')
+};
+

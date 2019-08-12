@@ -1,3 +1,5 @@
+const getToken = require('../utils/getToken');
+
 class Utils {
 
   static async asyncLoop (iterations, func, callback) {
@@ -52,6 +54,10 @@ class Utils {
 
   static rand (min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  static getToken (...params) {
+    return getToken(...params);
   }
 }
 
