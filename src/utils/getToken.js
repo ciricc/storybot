@@ -23,19 +23,25 @@ async function logInWith2Auth (params, data) {
 
   	function relogIn (_2faCode = "", captcha={}) {
   	  if (_2faCode) params.code = _2faCode;
-      if (captcha.key) params.captcha_key = captcha.key;
+      if (captcha.key && captcha.sid) params.captcha_key = captcha.key;
       if (captcha.sid) params.captcha_sid = captcha.sid;
   	  easyvk(params).then((vk) => {
         return main(vk, data);
       }).catch((err) => {
-        console.log(err)
+        console.log(err);
+        let fullError = {};
+        try {
+          fullError = JSON.parse(err.message)
+        } catch (e) {
+
+        }
     		if (!err.easyvk_error) {
     		  if (
             err.error_code === "need_validation" || 
             err.error_code === 14 || 
-            err.error_code === "need_captcha") {
+            fullError.error === "need_captcha") {
       			return needValidate({
-      			  err: err,
+      			  err: fullError.error ? fullError : err,
       			  relogIn: relogIn
       			});
     		  }
@@ -58,7 +64,7 @@ function getToken (uName=username, pass=password, tokenPath=TOKEN_PATH) {
 
     console.log(error.validation_type);
 
-    rl.question(error.error + ":  ", (answer) => {
+    rl.question(error.error + (error.captcha_img ? ` (${error.captcha_img})` : "") + ":  ", (answer) => {
       let code = answer;
       
       let captcha = {
@@ -66,7 +72,7 @@ function getToken (uName=username, pass=password, tokenPath=TOKEN_PATH) {
         sid: error.captcha_sid
       }
 
-      relogIn(code);
+      relogIn(code, captcha);
 
       rl.close();
     });
