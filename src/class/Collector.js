@@ -108,6 +108,7 @@ class Collector {
   async run () {
 
     let vk = await easyvk({
+      ...(this.settings.easyvkParams || {}),
       save_session: false,
       reauth: true,
       debug: this.settings.easyvkDebug,

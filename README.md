@@ -101,6 +101,15 @@ tokens: ['token1', 'token2', 'token3', ...['tokenN']]
 * <b>target.users[]</b> - массив идентифекаторов пользователей, у которых нужно искать истории
 * <b>target.files[]</b> - массив путей к файлам, где хранятся идентифекатора пользователей, у которых нужно искать истории (соединяются вместе с <b>target.users[]</b>)
 * <b>collectFromGroups</b> - нужно ли в данный момент искать участников в группах
+* <b>easyvkParams</b> - объект с настройками `easyvk`
+
+```javascript
+new Collector({
+  easyvkParams: {
+    proxy: 'http://user:password@server:port'
+  }
+})
+```
 
 ### Viewer
 
