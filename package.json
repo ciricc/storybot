@@ -1,6 +1,6 @@
 {
   "name": "storybot",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "A bot that watches users stories on behalf of your VKontakte account (sqlite mode)",
   "main": "index.js",
   "scripts": {

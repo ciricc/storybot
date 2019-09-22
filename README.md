@@ -230,13 +230,14 @@ new Bot({
 
 Но в storybot я сделал этот момент упрощенным. Теперь можно легко получить подобный токен, воспользовавшись утилитами бота.
 
-#### Utils.getToken(username, password, tokenPath)
+#### Utils.getToken(username, password, tokenPath, output=true)
 
 Эта утилита получает токен. Автоматически запрашивает ручной ввод в консоли капчи, если она возникает, а также код для двухфакторной аутентификации, если он необходим. В конце ничего не возвращает, работает только с `output`, выводит токен в окно консоли и в указанный файл
 
 * <b>username</b> - логин
 * <b>password</b> - пароль
 * <b>tokenPath</b> - путь, куда сохранится файл с токеном
+* <b>output</b> - нужно ли выводить токен в консоль и в файл (если нет, то используется Promise)
 
 ```javascript
 const {
@@ -246,6 +247,21 @@ const {
 
 async function main () {
   return Utils.getToken('liza-iza@gmailinbox.com', 'AzaRaLize45067!', 'C:/Users/.token')
+}
+
+main();
+```
+
+Версия без вывода в консоль
+```javascript
+const {
+  Utils
+} = require('storybot');
+
+
+async function main () {
+  return Utils.getToken('liza-iza@gmailinbox.com', 'AzaRaLize45067!', 'C:/Users/.token', false)
+  .then(token => console.log(token));
 }
 
 main();

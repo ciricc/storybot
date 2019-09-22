@@ -13,7 +13,8 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-async function main (vk, {tokenPath}) {
+async function main (vk, {tokenPath, resolve}) {
+  if (resolve) return resolve(vk.session.access_token)
   console.log(vk.session.access_token); // Выводим токен в лог
   return require('fs').writeFileSync(tokenPath, vk.session.access_token);
 }
@@ -54,29 +55,34 @@ async function logInWith2Auth (params, data) {
   })
 }
 
-function getToken (uName=username, pass=password, tokenPath=TOKEN_PATH) {
-  logInWith2Auth({
-    username: uName,
-    password: pass,
-    reauth: true,
-    save_session: false
-  }, {tokenPath}).then(({err: error, relogIn}) => {
+async function getToken (uName=username, pass=password, tokenPath=TOKEN_PATH, output=true) {
+  return new Promise((resolve, reject) => {
+    let data = {}
+    if (!output) data.resolve = resolve;
 
-    console.log(error.validation_type);
+    return logInWith2Auth({
+      username: uName,
+      password: pass,
+      reauth: true,
+      save_session: false
+    }, {tokenPath, ...data}).then(({err: error, relogIn}) => {
 
-    rl.question(error.error + (error.captcha_img ? ` (${error.captcha_img})` : "") + ":  ", (answer) => {
-      let code = answer;
-      
-      let captcha = {
-        key: answer,
-        sid: error.captcha_sid
-      }
+      console.log(error.validation_type);
 
-      relogIn(code, captcha);
+      rl.question(error.error + (error.captcha_img ? ` (${error.captcha_img})` : "") + ":  ", (answer) => {
+        let code = answer;
+        
+        let captcha = {
+          key: answer,
+          sid: error.captcha_sid
+        }
 
-      rl.close();
-    });
+        relogIn(code, captcha);
 
+        rl.close();
+      });
+
+    })
   })
 }
 
