@@ -14,7 +14,7 @@ const rl = readline.createInterface({
 });
 
 async function main (vk, {tokenPath, resolve}) {
-  if (resolve) return resolve(vk.session.access_token)
+  if (resolve) return resolve(vk.session.access_token);
   console.log(vk.session.access_token); // Выводим токен в лог
   return require('fs').writeFileSync(tokenPath, vk.session.access_token);
 }
