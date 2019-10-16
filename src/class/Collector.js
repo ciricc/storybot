@@ -5,6 +5,7 @@ const Utils = require('./Utils')
 
 const COUNT_USERS_FOR_ONE_TOKEN = 25;
 const WAIT_TIME = 1024;
+const LIMIT_COUNT_MEMBERS_CACHE = 300;
 
 class Collector {
   
@@ -296,11 +297,11 @@ class Collector {
         offset = this.groupsCursor[this.activeGroup].offset
 
         let execs = [];
+        let limitCount = LIMIT_COUNT_MEMBERS_CACHE;
+        self._log('Получаем новых участников', 'offset=' + offset, 'activeGroup=' + this.activeGroup, 'limitCount=' + limitCount);
 
-        self._log('offset=' + offset, 'activeGroup=' + this.activeGroup)
         
         async function retry () {
-          let limitCount = 300;
           return self._vk.post('execute', {
             code: `var gid = ${self.activeGroup};var i = 0;
             var offsetStart = ${offset};
@@ -318,16 +319,11 @@ class Collector {
             fs.appendFileSync('access_true.txt', self.countRequests + ' ' + ((vkr[0].items) ? true : false) + ' ' + new Date() + '\n' )
 
             let _vkr = [];
-            vkr[0].items.forEach((item, i) => {
-              if (item.id) {
-                self.usersData[item.id] = item;
-                _vkr.push(item.id)
-              }
-            });
             
+            let items = vkr[0].items || [];
+            let itemsCount = items.length;
 
-            // console.log(self.usersData)
-            self._log('Получили участников: ', vkr[0].items.slice(0,5).join(',') + '...', vkr[0].items.length)
+            self._log('Получили участников: ', items.slice(0,5).join(',') + '...', itemsCount)
 
             self.cacheGroups = vkr;
 
@@ -336,7 +332,7 @@ class Collector {
               self.activeGroupIndex += 1
               
               if (vkr[0] === false) {
-                self._log(`[Error] Участники группы @club${this.activeGroup} не были получены. Убедитесь, что группа доступна аккаунту коллектора и не заблокирована`)
+                self._log(`[Error] Участники группы @club${self.activeGroup} не были получены. Убедитесь, что группа доступна аккаунту коллектора и не заблокирована`)
               }
 
               if (!self.groupIds[self.activeGroupIndex]) {
@@ -351,6 +347,14 @@ class Collector {
                 return await loopGroups.call(self)
               }
             } else {
+              
+              vkr[0].items.forEach((item, i) => {
+                if (item.id) {
+                  self.usersData[item.id] = item;
+                  _vkr.push(item.id)
+                }
+              });
+
               // Настраиваем таргет
               let __vkr = Array.from(_vkr);
 
@@ -400,6 +404,12 @@ class Collector {
     })
   }
 
+  catchVKError (error) {
+    let requestParams = error.request_params || [];
+
+    self._log(`[Error] Запрос на метод API ${requestParams[0] && requestParams[0].value}: ${error.error_msg}`);
+    return {}
+  }
 
   async _checkStoriesFromCacheFast () {
 
@@ -427,8 +437,10 @@ class Collector {
           
           let seeNow = members.splice(0, COUNT_USERS_FOR_ONE_TOKEN);
           let countOf = seeNow.length;
-          
-          this._log(token.slice(0,10) + '..', '================================= loop', seeNow.length)
+          let groupCursor = this.groupsCursor[this.activeGroup]
+
+          this._log('Активная группа:', '============ @club'+this.activeGroup+' ==================== Получаем истории у: ', seeNow.length, ' пользователей')
+          this._log('Offset: ', groupCursor.offset, 'Cache length:', this.cacheGroups.length)
 
           /** 
             Собираем участников только с наличием историй, middleware позоботиться о том,
@@ -457,6 +469,8 @@ class Collector {
                  }
                  i = i + 1;
                } return stories;`
+          }).catch((e) => {
+            return this.catchVKError(e);
           });
           
           let group;

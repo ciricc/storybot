@@ -68,7 +68,7 @@ async function getToken (uName=username, pass=password, tokenPath=TOKEN_PATH, ou
     }, {tokenPath, ...data}).then(({err: error, relogIn}) => {
 
       console.log(error.validation_type);
-
+      console.log('open rl')
       rl.question(error.error + (error.captcha_img ? ` (${error.captcha_img})` : "") + ":  ", (answer) => {
         let code = answer;
         
@@ -78,7 +78,7 @@ async function getToken (uName=username, pass=password, tokenPath=TOKEN_PATH, ou
         }
 
         relogIn(code, captcha);
-
+        console.log('close rl')
         rl.close();
       });
 
