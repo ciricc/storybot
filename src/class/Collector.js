@@ -38,7 +38,8 @@ class Collector {
 
     this.cacheGroups = []
     this.settings = settings;
-
+    this.stopped = false;
+    
     if (!this.settings.tokens || !this.settings.tokens.length) {
       throw new Error('You need setup tokens property in collector')
     }
@@ -93,7 +94,6 @@ class Collector {
 
       return await next();
     }
-
   }
 
   createToken (token) {
@@ -106,15 +106,24 @@ class Collector {
     }
   }
 
-  async run () {
+  stop () {
+    this.stopped = true;
+    this._command('stop_process');
+  }
 
-    let vk = await easyvk({
+  async run () {
+    this._command('start')
+
+    let evkConfig = {
       ...(this.settings.easyvkParams || {}),
       save_session: false,
       reauth: true,
       debug: this.settings.easyvkDebug,
       access_token: this.settings.tokens[0]
-    })
+    }
+
+    this._command('easyvk_auth_token', evkConfig);
+    let vk = await easyvk(evkConfig)
     
     this._vk = vk
     this._vk.use(this.easyVKMiddleWare, console.error)
@@ -163,7 +172,8 @@ class Collector {
     }
 
     this.cacheGroups.splice(0, this.collectorRaw.target_offset);
-
+    
+    this._command('setupped');
     return this._runCollectingStories()
   }
 
@@ -190,7 +200,9 @@ class Collector {
       let users = [];
       
       this.fileIds.forEach(file => {
+        this._command('get_file_ids', file)
         let _users = fs.readFileSync(file.path).toString();
+        this._command('got_file_ids', _users);
 
         _users = _users.replace(/\r/g, "").split(/\n|\s/)
         _users.forEach((user) => {
@@ -207,7 +219,8 @@ class Collector {
     if (this.fileIds.length) {
       await getIdsFromFiles.call(this)
     }
-
+    
+    this._command('complete_group_ids', this.groupIds)
     await Utils.asyncLoop(self.groupIds.length, async (loop) => {
       let groupId = self.groupIds[loop.iteration]
 
@@ -220,13 +233,14 @@ class Collector {
       
       if (!count) {
         self._log('Добавляем группу в базу данных...')
-        console.log(groupId, 'ok', {
+        self._log(groupId, 'ok', {
           "group_id": groupId,
           "offset": 0,
           "count_of_stories": 0,
           "last_check_time": 0,
           "bot_name": self.botName
         })
+        self._command('insert_new_group', groupId)
         await self.db('groups').insert({
           "group_id": groupId,
           "offset": 0,
@@ -234,10 +248,11 @@ class Collector {
           "last_check_time": 0,
           "bot_name": self.botName
         }).catch(e => {
-          console.log(e, groupId)
+          self._log(e, groupId)
         });
       } else {
-        console.log('Есть')
+        self._log('такая группа уже существует!')
+        self._command('group_exists', groupId)
       }
 
       loop.next()
@@ -256,7 +271,7 @@ class Collector {
     }
 
     self._log('Группы из настроек были проверены и добавлены в базу')
-    
+    self._command('complete_setup_groups')
     return self._checkStoriesFromCacheFast()
   }
 
@@ -406,28 +421,38 @@ class Collector {
 
   catchVKError (error) {
     let requestParams = error.request_params || [];
+    let self = this;
+
+    self._command('vk_error', error);
 
     self._log(`[Error] Запрос на метод API ${requestParams[0] && requestParams[0].value}: ${error.error_msg}`);
     return {}
   }
 
   async _checkStoriesFromCacheFast () {
+    let self = this;
 
     return new Promise((resolve, reject) => {
       /** Данный алгоритм создает непрерывный поиск историй на максимально доступной скорости для всех токенов */
       for (let token of this.settings.tokens) {
         let loop = async ()  => {
+          if (this.stopped) return;
+          self._command('loop')
           let members = [];
-          console.log(members)
+          
+          self._log(members)
+
           this.cacheGroups.forEach(membersRes => {
             members = members.concat(membersRes.items ? membersRes.items : [membersRes])
           })
           
-          if (!this.activeGroup) 
+          if (!this.activeGroup) {
               this.activeGroup = this.groupIds[this.activeGroupIndex]
+              this._command('update_active_group', this.activeGroup)
+          }
 
           this.cacheGroups = members
-
+          this._command('update_cache_groups', this.cacheGroups.length)
           // console.log(members)
           /** 
             Эта функция постоянно проверяет из списка доступных учатсников наличие историй,
@@ -446,6 +471,8 @@ class Collector {
             Собираем участников только с наличием историй, middleware позоботиться о том,
             чтобы запросы проходили только по своим собственным ограничениям, а не по общим
           */ 
+          
+          this._command('execute_stories_get', seeNow);
           let { vkr } = await this._vk.post('execute', {
             access_token: token,
             code: `var stories=[];
@@ -473,6 +500,8 @@ class Collector {
             return this.catchVKError(e);
           });
           
+          this._command('execute_stories_get_response', vkr);
+
           let group;
 
           if (!this.collectingTarget) {
@@ -494,7 +523,7 @@ class Collector {
 
           if (vkr.length) {
             if (!this.collectingTarget) {
-              this._log(`Достали ${vkr.length} пользователей из группы @club${group.group_id}, (offset=${group.offset})`)
+              this._log(`Достали ${vkr.length} пользователей с историями из группы @club${group.group_id}, (offset=${group.offset})`)
             }
           }
 
@@ -531,13 +560,15 @@ class Collector {
 
                 if (this.tokenStopped >= this.settings.tokens.length) {
                   this._log('Все токены коллектора прекратили работу')
+                  this._command('tokens_stopped')
                   return
                 } else {
+                  this._command('token_stopped', token, this.tokenStopped);
                   this._log('Токен ' + token.slice(0,10) + '.. прекратил работу', this.tokenStopped)
                 }
                }
              } catch (e) {
-              console.log(e)
+              self._log(e)
              }
           }
 
@@ -552,50 +583,51 @@ class Collector {
   }
 
   async _addUsers (users = []) {
-     return users.forEach(async user => {
-      if (user.vk) {
-        let _user = {};
-        
-        Object.keys(user).forEach(key => {
-          if (key !== "vk") {
-            _user[key] =  user[key];
-          }
-        });
-
-        _user.vk_id = user.vk
-        user = _user;
-      }
+    this._command('add_users', users);
+    return users.forEach(async user => {
+    if (user.vk) {
+      let _user = {};
       
-      user.bot_name = this.botName
-      user.vk_id = Number(user.vk_id)
-      user.stids = user.stids.join(',')
+      Object.keys(user).forEach(key => {
+        if (key !== "vk") {
+          _user[key] =  user[key];
+        }
+      });
 
-      let userFromDb = await this.db('users')
-      .select('vk_id')
+      _user.vk_id = user.vk
+      user = _user;
+    }
+
+    user.bot_name = this.botName
+    user.vk_id = Number(user.vk_id)
+    user.stids = user.stids.join(',')
+
+    let userFromDb = await this.db('users')
+    .select('vk_id')
+    .where('vk_id', '=', user.vk_id)
+    .andWhere('bot_name', '=', user.bot_name)
+
+    if (userFromDb[0] && Object.keys(userFromDb[0]).length) {
+      await this.db('users')
       .where('vk_id', '=', user.vk_id)
       .andWhere('bot_name', '=', user.bot_name)
-
-      if (userFromDb[0] && Object.keys(userFromDb[0]).length) {
-        await this.db('users')
-        .where('vk_id', '=', user.vk_id)
-        .andWhere('bot_name', '=', user.bot_name)
-        .update(user)
-      } else {
-        await this.db('users').insert(user)
-      }
+      .update(user)
+    } else {
+      await this.db('users').insert(user)
+    }
     }, this)
 
   }
 
   async _updateGroup (group = {}) {
-    
+    this._command('update_group', group)
     return this.db('groups')
     .update(group)
     .where('id', group.id)
   }
 
   async _updateCollectorRaw (collectorRaw = {}) {
-    
+    this._command('update_collector', collectorRaw)
     return this.db('collectors')
     .update(collectorRaw)
     .where('id', collectorRaw.id)

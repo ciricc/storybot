@@ -12,7 +12,8 @@ class Bot {
 
   constructor (dbSetup = {}) {
     this.bots = [];
-    
+    this.clearBots = [];
+
     if (dbSetup.log !== undefined && typeof dbSetup.log !== "function") {
       throw new Error('Log function must be only of function type')
     }
@@ -42,6 +43,7 @@ class Bot {
     configurationBot = this._checkConfigBot(configurationBot)
      
     this.bots.push(configurationBot)
+    this.clearBots.push(configurationBot)
   }
 
 
@@ -185,6 +187,17 @@ class Bot {
       resolve(true)
     })
 
+  }
+
+  stop () {
+    this.state.stopped = true;
+    this.bots.forEach((bot) => {
+      bot.collector.stop();
+      bot.viewers.forEach(viewer => {
+        viewer.stop();
+      });
+    });
+    this.bots = this.clearBots;
   }
 
 }

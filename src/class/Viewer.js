@@ -37,6 +37,7 @@ class Viewer {
 
     this.controllerState = {}
     this.config = viewerConfig
+    this.stopped = false;
   }
 
   async init () {
@@ -123,7 +124,7 @@ class Viewer {
     async function loop () {
       return new Promise((resolve, reject) => {
         let self = this
-
+        if (this.stopped) return
         // Need uset more than one user
         let nowWatching = users.slice(0, LIMIT_PER_2_SECONDS)
         let countChecked = 0
@@ -228,7 +229,7 @@ class Viewer {
       )
       await loop.call(this)
     } else {
-      this._log('Все истории из базы просмотрены... ждем новые')
+      this._log('Все истории из базы просмотрены... ждем новые (' + new Date().getTime() + ')')
 
       this._command(
         'viewer_waiting'
@@ -250,6 +251,14 @@ class Viewer {
     return this.db('viewers')
     .where('id', '=', doc.id)
     .update(doc)
+  }
+
+  stop () {
+    this.stopped = true;
+    this._command(
+      'viewer_stopped',
+      'stop_command'
+    )
   }
 }
 
